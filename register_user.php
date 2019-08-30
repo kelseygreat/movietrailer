@@ -1,7 +1,7 @@
 <?php
 session_start();
 $username = ""; $email = ""; $password = ""; $cpassword = "";
-$msg1 =""; $msg2 =""; $msg3 = ""; $msg4 = "";  $msg5 = "";
+$msg1 =""; $msg2 =""; $msg3 = ""; $msg4 = "";  $msg5 = ""; $msg6 = "";
 require_once ('include/config.php');
 require_once ('include/functions.php');
 if(isset($_POST['register'])){
@@ -9,6 +9,7 @@ if(isset($_POST['register'])){
     $email = mysqli_real_escape_string($conn, htmlspecialchars($_POST['email'],  ENT_QUOTES, 'utf-8'));
     $password = mysqli_real_escape_string($conn, htmlspecialchars($_POST['password'],  ENT_QUOTES, 'utf-8'));
     $cpassword = mysqli_real_escape_string($conn, htmlspecialchars($_POST['cpassword'],  ENT_QUOTES, 'utf-8'));
+    $token = bin2hex(openssl_random_pseudo_bytes(40));
 
     //validation checks
 
@@ -17,10 +18,14 @@ if(isset($_POST['register'])){
     }else if(strlen($username)<=3){
         $msg1 = "<div class='alert-danger alert-dismissable text-center' style='font-size: 16px;'>Username must be greater than 3 characters.</div>";
 
+    }else if(usernameCheck($conn, $username)){
+        $msg1 = "<div class='alert-danger alert-dismissable text-center' style='font-size: 16px;'>Username already exists.</div>";
     }else if(empty($email)){
         $msg2 = "<div class='alert-danger alert-dismissable text-center' style='font-size: 16px;'>Email is required.</div>";
     }else if(!filter_var($email, FILTER_VALIDATE_EMAIL)){
         $msg2 = "<div class='alert-danger alert-dismissable text-center' style='font-size: 16px;'>Pls enter a valid email address.</div>";
+    }else if(emailCheck($conn, $email)){
+        $msg2 = "<div class='alert-danger alert-dismissable text-center' style='font-size: 16px;'>Sorry Email is already registered. Try a different one.</div>";
     }else if(empty($password)){
         $msg3 = "<div class='alert-danger alert-dismissable text-center' style='font-size: 16px;'>Pls enter your password.</div>";
     }elseif(strlen($password)<=5){
@@ -31,17 +36,40 @@ if(isset($_POST['register'])){
         $msg4 = "<div class='alert-danger alert-dismissable text-center' style='font-size: 16px;'>The two passwords must be the same.</div>";
     }else{
         //All validations passed
-        $_SESSION['name'] = $username;
-        $name = $username;
-        $msg5 = "<div style='font-size: 19px; height: 70px; margin-bottom: 20px; background: #5bc0de; color: #ffffff; text-align: center; 
-                -webkit-border-radius: 10px;-moz-border-radius: 10px;border-radius: 10px;'>"
-            . 'Registration successful <br> Please check your email for an activation link.'
-           ."</div>";
-        ?>
-         "<meta http-equiv='refresh' content='6; register_user.php' />";
-       <?php
+        $_SESSION['name'] = $email;
 
-        //insert data into database
+        //insert data into database if all checks are fine
+        $hashed_password = Password_Encryption($password);
+        $sql = "INSERT INTO admin_panel (username, email, password, token, active) VALUES ('$username', '$email', '$hashed_password', '$token', 'off')";
+        $query = mysqli_query($conn, $sql);
+        if($query){
+            $subject = "Hello " ."$username". "Please activate your account.";
+            $message  = "Hi"."$username" . " , here's the link to activate your account:"."http://localhost/movietrailer/register_user/activate.php?token='$token'";
+            $headers = "From: Kelseygreat@gmail.com";
+            $sendmail = mail($email, $subject, $message, $headers);
+              if($sendmail){
+                $msg5 = "<div style='font-size: 19px; height: 70px; margin-bottom: 20px; background: #5bc0de; color: #ffffff; text-align: center; 
+                -webkit-border-radius: 10px;-moz-border-radius: 10px;border-radius: 10px; padding-top: 10px; padding-bottom: 20px;'>"
+                    . 'Registration successful <br> Please check your email for an activation link. do not forget to also check your junk or spam folders.'
+                    . "</div>";
+            ?>
+            "<meta http-equiv='refresh' content='4; login.php' />";
+            <?php
+              }else{
+                  $msg5 = "<div style='font-size: 19px; height: 70px; margin-bottom: 20px; background: #de3744; color: #ffffff; text-align: center; 
+                -webkit-border-radius: 10px;-moz-border-radius: 10px;border-radius: 10px;'>"
+                      . 'Sorry something went wrong<br> Please try registering again.'
+                      ."</div>";
+              }
+        }else{
+            $msg5 = "<div style='font-size: 19px; height: 70px; margin-bottom: 20px; background: #de3744; color: #ffffff; text-align: center; 
+                -webkit-border-radius: 10px;-moz-border-radius: 10px;border-radius: 10px;'>"
+                . 'Sorry something went wrong<br> Please try again.'
+                ."</div>";
+        }
+
+        
+
 
 
     }
@@ -100,6 +128,7 @@ if(isset($_POST['register'])){
              </div>
 
          </form>
+         <p class="text-center">Already Registered? login <a href="login.php">here</a></p>
      </div>
 </div>
     </div>
